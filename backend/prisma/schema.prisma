@@ -1,0 +1,62 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Get a free hosted Postgres database in seconds: `npx create-db`
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model Skill {
+  id Int @id @unique @default(autoincrement())
+  name String @unique
+  developerSkills DeveloperSkill[]
+  taskSkills TaskSkill[]
+}
+
+model Developer {
+  id Int @id @unique @default(autoincrement())
+  name String
+  skills DeveloperSkill[]
+  tasks Task[]
+}
+
+model DeveloperSkill {
+  developerId Int
+  skillId Int
+
+  developer Developer @relation(fields: [developerId], references: [id])
+  skill Skill @relation(fields: [skillId], references: [id])
+
+  @@id([developerId, skillId])
+}
+
+enum TaskStatus {
+  TODO
+  DONE
+  CLOSED
+}
+
+model Task {
+  id Int @id @unique @default(autoincrement())
+  title String
+  developerId Int?
+  skills TaskSkill[]
+  developer Developer? @relation(fields: [developerId], references: [id])
+  status TaskStatus @default(TODO)
+}
+
+model TaskSkill {
+  taskId Int
+  skillId Int
+
+  task Task @relation(fields: [taskId], references: [id])
+  skill Skill @relation(fields: [skillId], references: [id])
+
+  @@id([taskId, skillId])
+}
