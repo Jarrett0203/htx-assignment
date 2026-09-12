@@ -15,7 +15,6 @@ app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 });
 
-app.use(router);
 app.use(cors(
   {
     origin: (origin, callback) => {
@@ -27,3 +26,4 @@ app.use(cors(
     }
   }
 ));
+app.use(router);
