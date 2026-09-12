@@ -22,6 +22,16 @@ export async function createTask(req: Request, res: Response) {
     return res.status(400).json({ error: "title (string) and skillIds (non-empty number[]) are required"})
   }
 
+  const existingSkills = await prisma.skill.findMany({
+    where: { id: { in: skillIds }}
+  });
+
+  if (existingSkills.length !== skillIds.length) {
+    const existingIds = new Set(existingSkills.map((s) => s.id));
+    const missingIds = skillIds.filter((id: number) => !existingIds.has(id));
+    return res.status(400).json({ error: `Skill id(s) not found: ${missingIds.join(", ")}`});
+  }
+
   const task = await prisma.task.create({
     data: {
       title,
