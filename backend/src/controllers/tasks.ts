@@ -178,9 +178,7 @@ export async function updateTaskStatus(req: Request, res: Response) {
 
   const task = await prisma.task.findUnique({
     where: { id },
-    include: {
-      subtasks: true,
-    },
+    include: { subtasks: true, parent: true },
   });
 
   if (!task) {
@@ -188,14 +186,19 @@ export async function updateTaskStatus(req: Request, res: Response) {
   }
 
   if (status === "DONE") {
-    const allSubtasksDone = task.subtasks.every(
-      (subtask) => subtask.status === "DONE",
-    );
-    if (!allSubtasksDone) {
+    const incompleteSubtasks = task.subtasks.filter((subtask) => subtask.status !== "DONE");
+    if (incompleteSubtasks.length > 0) {
+      const titles = incompleteSubtasks.map((subtask) => subtask.title).join(", ");
       return res.status(400).json({
-        error: "Cannot mark task as Done while subtasks are not Done",
+        error: `Cannot mark task as Done while subtasks are not Done: ${titles}`
       });
     }
+  }
+
+  if (status !== "DONE" && task.parent?.status === "DONE") {
+    return res.status(400).json({
+      error: `Cannot change status, parent task "${task.parent.title}" is marked Done. Change the parent's status first.`,
+    });
   }
 
   const updatedTask = await prisma.task.update({
