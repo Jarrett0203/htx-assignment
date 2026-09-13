@@ -1,7 +1,10 @@
 import { useEffect, useState } from "react";
-import { Developer, Task, TASK_STATUSES, TaskStatus } from "../types";
+import { Developer, Task, TaskStatus } from "../types";
 import { assignTask, getAllTasks, updateTaskStatus } from "../api/tasks";
 import { getAllDevelopers } from "../api/developers";
+import SkillPills from "../components/SkillPills";
+import StatusSelect from "../components/StatusSelect";
+import AssigneeSelect from "../components/AssigneeSelect";
 
 const TaskListPage = () => {
   const [tasks, setTasks] = useState<Task[]>([]);
@@ -30,9 +33,11 @@ const TaskListPage = () => {
   }, []);
 
   function qualifyingDevelopers(task: Task): Developer[] {
-    const requiredSkillIds = task.skills.map((skill) => skill.skill.id);
+    const requiredSkillIds = task.skills.map((taskSkill) => taskSkill.skill.id);
     return developers.filter((dev) => {
-      const devSkillIds = new Set(dev.skills.map((skill) => skill.skill.id));
+      const devSkillIds = new Set(
+        dev.skills.map((devSkill) => devSkill.skill.id),
+      );
       return requiredSkillIds.every((id) => devSkillIds.has(id));
     });
   }
@@ -53,72 +58,89 @@ const TaskListPage = () => {
 
   return (
     <div>
-      <h1>Task List</h1>
-      <table>
-        <thead>
-          <tr>
-            <th>Task Title</th>
-            <th>Skills</th>
-            <th>Status</th>
-            <th>Assignee</th>
-          </tr>
-        </thead>
-        <tbody>
-          {loading ? (
-            <tr>
-              <td colSpan={4}>Loading...</td>
-            </tr>
-          ) : error ? (
-            <tr>
-              <td colSpan={4}>{error}</td>
-            </tr>
-          ) : tasks.length === 0 ? (
-            <tr>
-              <td colSpan={4}>No tasks currently.</td>
-            </tr>
-          ) : (
-            tasks.map((task) => (
-              <tr key={task.id}>
-                <td>{task.title}</td>
-                <td>
-                  {task.skills.map((skill) => skill.skill.name).join(", ")}
-                </td>
-                <td>
-                  <select
-                    value={task.status}
-                    onChange={(e) =>
-                      handleStatusChange(task.id, e.target.value as TaskStatus)
-                    }
-                  >
-                    {TASK_STATUSES.map((status) => (
-                      <option value={status} key={status}>
-                        {status}
-                      </option>
-                    ))}
-                  </select>
-                </td>
-                <td>
-                  <select
-                    value={task.developerId ?? ""}
-                    onChange={(e) =>
-                      handleAssign(task.id, Number(e.target.value))
-                    }
-                  >
-                    <option value="" disabled>
-                      Unassigned
-                    </option>
-                    {qualifyingDevelopers(task).map((dev) => (
-                      <option key={dev.id} value={dev.id}>
-                        {dev.name}
-                      </option>
-                    ))}
-                  </select>
-                </td>
+      <h1 className="mb-6 px-4 md:px-0 text-xl font-semibold text-slate-900">Task List</h1>
+
+      {loading ? (
+        <p className="py-8 text-center text-slate-400">Loading...</p>
+      ) : error ? (
+        <p className="py-8 text-center text-red-500">{error}</p>
+      ) : tasks.length === 0 ? (
+        <p className="py-8 text-center text-slate-400">No tasks currently.</p>
+      ) : (
+        <>
+          {/* Mobile: stacked cards, hidden at md and above */}
+          <div className="flex flex-col gap-3 md:hidden">
+            {tasks.map((task) => (
+              <div
+                key={task.id}
+                className="rounded-lg border border-slate-200 bg-white p-4"
+              >
+                <h2 className="font-medium text-slate-900">{task.title}</h2>
+                <div className="mt-2">
+                  <SkillPills skills={task.skills} />
+                </div>
+                <div className="mt-3 grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs text-slate-500">
+                      Status
+                    </label>
+                    <div className="mt-1">
+                      <StatusSelect task={task} onChange={handleStatusChange} />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-xs text-slate-500">
+                      Assignee
+                    </label>
+                    <div className="mt-1">
+                      <AssigneeSelect
+                        task={task}
+                        developers={qualifyingDevelopers(task)}
+                        onChange={handleAssign}
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Desktop: table, hidden below md */}
+          <table className="hidden w-full border-collapse overflow-hidden rounded-lg border border-slate-200 bg-white text-sm md:table">
+            <thead>
+              <tr className="border-b border-slate-200 bg-slate-50 text-left text-slate-500">
+                <th className="px-4 py-3 font-medium">Task Title</th>
+                <th className="px-4 py-3 font-medium">Skills</th>
+                <th className="px-4 py-3 font-medium">Status</th>
+                <th className="px-4 py-3 font-medium">Assignee</th>
               </tr>
-            ))
-          )}
-        </tbody>
-      </table>
+            </thead>
+            <tbody>
+              {tasks.map((task) => (
+                <tr
+                  key={task.id}
+                  className="border-b border-slate-100 last:border-0"
+                >
+                  <td className="px-4 py-3 text-slate-800">{task.title}</td>
+                  <td className="px-4 py-3">
+                    <SkillPills skills={task.skills} />
+                  </td>
+                  <td className="px-4 py-3">
+                    <StatusSelect task={task} onChange={handleStatusChange} />
+                  </td>
+                  <td className="px-4 py-3">
+                    <AssigneeSelect
+                      task={task}
+                      developers={qualifyingDevelopers(task)}
+                      onChange={handleAssign}
+                    />
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </>
+      )}
     </div>
   );
 };
