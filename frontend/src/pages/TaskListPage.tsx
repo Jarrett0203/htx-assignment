@@ -45,12 +45,26 @@ const TaskListPage = () => {
     });
   }
 
+  function updateTaskInTree(
+    tasks: Task[],
+    taskId: number,
+    updatedTask: Task,
+  ): Task[] {
+    return tasks.map((task) => {
+      if (task.id === taskId) {
+        return updatedTask;
+      }
+      return {
+        ...task,
+        subtasks: updateTaskInTree(task.subtasks, taskId, updatedTask),
+      };
+    });
+  }
+
   async function handleStatusChange(taskId: number, status: TaskStatus) {
     try {
       const updated = await updateTaskStatus(taskId, status);
-      setTasks((prev) =>
-        prev.map((task) => (task.id === taskId ? updated : task)),
-      );
+      setTasks((prev) => updateTaskInTree(prev, taskId, updated));
     } catch (error) {
       if (axios.isAxiosError(error) && error.response?.data.error) {
         toast.error(error.response.data.error);
@@ -63,9 +77,7 @@ const TaskListPage = () => {
   async function handleAssign(taskId: number, developerId: number) {
     try {
       const updated = await assignTask(taskId, developerId);
-      setTasks((prev) =>
-        prev.map((task) => (task.id === taskId ? updated : task)),
-      );
+      setTasks((prev) => updateTaskInTree(prev, taskId, updated));
     } catch (error) {
       if (axios.isAxiosError(error) && error.response?.data.error) {
         toast.error(error.response.data.error);
