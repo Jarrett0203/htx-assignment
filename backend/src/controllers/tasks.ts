@@ -1,6 +1,8 @@
 import { Request, Response } from "express";
 import { prisma } from "../lib/prisma.ts";
 import { TaskStatus } from "../generated/prisma/enums.ts";
+import { identifySkillNames } from "../services/skillIdentifier.ts";
+import { getSkillIdByName } from "../lib/skillCache.ts";
 
 interface CreateTaskInput {
   title: string;
@@ -56,6 +58,28 @@ function isValidCreateTaskInput(body: unknown): body is CreateTaskInput {
   return true;
 }
 
+function collectAllSkillIds(input: CreateTaskInput): number[] {
+  return [
+    ...input.skillIds,
+    ...(input.subtasks ?? []).flatMap((sub) => collectAllSkillIds(sub)),
+  ];
+}
+
+async function resolveSkillIds(input: CreateTaskInput): Promise<CreateTaskInput> {
+  let skillIds = input.skillIds;
+
+  if (skillIds.length === 0) {
+    const skillNames = await identifySkillNames(input.title);
+    skillIds = skillNames.map((name) => getSkillIdByName(name)).filter((id): id is number => id !== undefined);
+  }
+
+  const resolvedSubtasks = await Promise.all(
+    (input.subtasks ?? []).map((subtask) => resolveSkillIds(subtask))
+  );
+
+  return {...input, skillIds, subtasks: resolvedSubtasks};
+}
+
 export async function createTask(req: Request, res: Response) {
   if (!isValidCreateTaskInput(req.body)) {
     return res
@@ -65,8 +89,19 @@ export async function createTask(req: Request, res: Response) {
       });
   }
 
+  const resolvedInput = await resolveSkillIds(req.body);
+
+  const allSkillIds = [...new Set(collectAllSkillIds(resolvedInput))];
+  const existingSkills = await prisma.skill.findMany({ where: { id: { in: allSkillIds } } });
+
+  if (existingSkills.length !== allSkillIds.length) {
+    const existingIds = new Set(existingSkills.map((s) => s.id));
+    const missingIds = allSkillIds.filter((id) => !existingIds.has(id));
+    return res.status(400).json({ error: `Skill id(s) not found: ${missingIds.join(", ")}` });
+  }
+
   const task = await prisma.task.create({
-    data: buildTaskCreateData(req.body),
+    data: buildTaskCreateData(resolvedInput),
     include: { skills: { include: { skill: true } }, subtasks: true },
   });
 
