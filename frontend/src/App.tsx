@@ -1,10 +1,12 @@
 import { Link, Route, Routes } from "react-router-dom";
 import TaskListPage from "./pages/TaskListPage";
 import TaskCreationPage from "./pages/TaskCreationPage";
+import { Toaster } from "react-hot-toast";
 
 function App() {
   return (
     <div className="min-h-screen bg-slate-50">
+      <Toaster position="top-center" />
       <nav className="border-b border-slate-200 bg-white px-6 py-4">
         <div className="mx-auto flex max-w-4xl gap-6">
           <Link

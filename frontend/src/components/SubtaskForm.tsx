@@ -1,8 +1,14 @@
-import { createEmptyDraft, Skill, TaskDraft } from "../types";
+import {
+  createEmptyDraft,
+  MAX_SUBTASK_DEPTH,
+  Skill,
+  TaskDraft,
+} from "../types";
 
 interface SubTaskFormProps {
   draft: TaskDraft;
   skills: Skill[];
+  depth: number;
   onChange: (updated: TaskDraft) => void;
   onRemove: () => void;
 }
@@ -10,6 +16,7 @@ interface SubTaskFormProps {
 const SubtaskForm = ({
   draft,
   skills,
+  depth,
   onChange,
   onRemove,
 }: SubTaskFormProps) => {
@@ -47,14 +54,21 @@ const SubtaskForm = ({
           placeholder="Subtask title"
           className="flex-1 rounded border border-slate-200 px-2 py-1 text-sm"
         />
-        <button type="button" onClick={onRemove} className="rounded bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700 cursor-pointer">
+        <button
+          type="button"
+          onClick={onRemove}
+          className="rounded bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700 cursor-pointer"
+        >
           Remove
         </button>
       </div>
 
       <div className="mt-2 flex flex-wrap gap-3">
         {skills.map((skill) => (
-          <label key={skill.id} className="flex items-center gap-1 text-sm text-slate-700">
+          <label
+            key={skill.id}
+            className="flex items-center gap-1 text-sm text-slate-700"
+          >
             <input
               type="checkbox"
               checked={draft.skillIds.includes(skill.id)}
@@ -70,14 +84,21 @@ const SubtaskForm = ({
           key={sub.id}
           draft={sub}
           skills={skills}
+          depth={depth + 1}
           onChange={(updated) => updateSubtask(i, updated)}
           onRemove={() => removeSubtask(i)}
         />
       ))}
 
-      <button type="button" onClick={addSubtask} className="mt-6 rounded bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 cursor-pointer">
-        + Add subtask
-      </button>
+      {depth < MAX_SUBTASK_DEPTH && (
+        <button
+          type="button"
+          onClick={addSubtask}
+          className="mt-6 rounded bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 cursor-pointer"
+        >
+          + Add subtask
+        </button>
+      )}
     </div>
   );
 };

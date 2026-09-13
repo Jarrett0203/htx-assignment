@@ -143,6 +143,7 @@ const TaskCreationPage = () => {
             key={subtask.id}
             draft={subtask}
             skills={skills}
+            depth={2}
             onChange={(updated) =>
               setSubtasks((prev) =>
                 prev.map((s, idx) => (idx === i ? updated : s)),

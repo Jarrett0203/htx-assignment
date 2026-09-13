@@ -1,5 +1,6 @@
 export const TASK_STATUSES = ["TODO", "DONE"] as const;
 export type TaskStatus = (typeof TASK_STATUSES)[number];
+export const MAX_SUBTASK_DEPTH = 3;
 
 export interface Skill {
   id: number;
@@ -19,6 +20,7 @@ export interface Task {
   developerId: number | null;
   developer: Developer | null;
   skills: { skill: Skill }[];
+  subtasks: Task[];
 }
 
 export interface CreateTaskInput {

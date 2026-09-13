@@ -1,16 +1,19 @@
-import { useEffect, useState } from "react";
+import { Fragment, useEffect, useState } from "react";
 import { Developer, Task, TaskStatus } from "../types";
 import { assignTask, getAllTasks, updateTaskStatus } from "../api/tasks";
 import { getAllDevelopers } from "../api/developers";
 import SkillPills from "../components/SkillPills";
 import StatusSelect from "../components/StatusSelect";
 import AssigneeSelect from "../components/AssigneeSelect";
+import axios from "axios";
+import toast from "react-hot-toast";
+import SubtaskList from "../components/SubtaskList";
 
 const TaskListPage = () => {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [developers, setDevelopers] = useState<Developer[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [fetchError, setFetchError] = useState<string>("");
 
   useEffect(() => {
     async function loadData() {
@@ -23,8 +26,8 @@ const TaskListPage = () => {
         setDevelopers(developerData);
       } catch (error) {
         console.error(error);
-        setError(
-          "Failed to load tasks. Please check your connection and try again.",
+        setFetchError(
+          "Failed to load tasks. Please check your connection and refresh.",
         );
       }
       setLoading(false);
@@ -43,17 +46,33 @@ const TaskListPage = () => {
   }
 
   async function handleStatusChange(taskId: number, status: TaskStatus) {
-    const updated = await updateTaskStatus(taskId, status);
-    setTasks((prev) =>
-      prev.map((task) => (task.id === taskId ? updated : task)),
-    );
+    try {
+      const updated = await updateTaskStatus(taskId, status);
+      setTasks((prev) =>
+        prev.map((task) => (task.id === taskId ? updated : task)),
+      );
+    } catch (error) {
+      if (axios.isAxiosError(error) && error.response?.data.error) {
+        toast.error(error.response.data.error);
+      } else {
+        toast.error("Failed to update status. Please try again.");
+      }
+    }
   }
 
   async function handleAssign(taskId: number, developerId: number) {
-    const updated = await assignTask(taskId, developerId);
-    setTasks((prev) =>
-      prev.map((task) => (task.id === taskId ? updated : task)),
-    );
+    try {
+      const updated = await assignTask(taskId, developerId);
+      setTasks((prev) =>
+        prev.map((task) => (task.id === taskId ? updated : task)),
+      );
+    } catch (error) {
+      if (axios.isAxiosError(error) && error.response?.data.error) {
+        toast.error(error.response.data.error);
+      } else {
+        toast.error("Failed to assign developer. Please try again.");
+      }
+    }
   }
 
   return (
@@ -62,8 +81,8 @@ const TaskListPage = () => {
 
       {loading ? (
         <p className="py-8 text-center text-slate-400">Loading...</p>
-      ) : error ? (
-        <p className="py-8 text-center text-red-500">{error}</p>
+      ) : fetchError !== "" ? (
+        <p className="py-8 text-center text-red-500">{fetchError}</p>
       ) : tasks.length === 0 ? (
         <p className="py-8 text-center text-slate-400">No tasks currently.</p>
       ) : (
@@ -101,6 +120,12 @@ const TaskListPage = () => {
                     </div>
                   </div>
                 </div>
+                <SubtaskList
+                  tasks={task.subtasks}
+                  developers={developers}
+                  onStatusChange={handleStatusChange}
+                  onAssign={handleAssign}
+                />
               </div>
             ))}
           </div>
@@ -117,25 +142,36 @@ const TaskListPage = () => {
             </thead>
             <tbody>
               {tasks.map((task) => (
-                <tr
-                  key={task.id}
-                  className="border-b border-slate-100 last:border-0"
-                >
-                  <td className="wrap-break-word px-4 py-3 text-slate-800">{task.title}</td>
-                  <td className="px-4 py-3">
-                    <SkillPills skills={task.skills} />
-                  </td>
-                  <td className="px-4 py-3">
-                    <StatusSelect task={task} onChange={handleStatusChange} />
-                  </td>
-                  <td className="px-4 py-3">
-                    <AssigneeSelect
-                      task={task}
-                      developers={qualifyingDevelopers(task)}
-                      onChange={handleAssign}
-                    />
-                  </td>
-                </tr>
+                <Fragment key={task.id}>
+                  <tr className="border-b border-slate-100 last:border-0">
+                    <td className="px-4 py-3 text-slate-800">{task.title}</td>
+                    <td className="px-4 py-3">
+                      <SkillPills skills={task.skills} />
+                    </td>
+                    <td className="px-4 py-3">
+                      <StatusSelect task={task} onChange={handleStatusChange} />
+                    </td>
+                    <td className="px-4 py-3">
+                      <AssigneeSelect
+                        task={task}
+                        developers={qualifyingDevelopers(task)}
+                        onChange={handleAssign}
+                      />
+                    </td>
+                  </tr>
+                  {task.subtasks.length > 0 && (
+                    <tr>
+                      <td colSpan={4} className="bg-slate-50 px-4 py-2">
+                        <SubtaskList
+                          tasks={task.subtasks}
+                          developers={developers}
+                          onStatusChange={handleStatusChange}
+                          onAssign={handleAssign}
+                        />
+                      </td>
+                    </tr>
+                  )}
+                </Fragment>
               ))}
             </tbody>
           </table>

@@ -4,6 +4,30 @@ import { TaskStatus } from "../generated/prisma/enums.ts";
 import { identifySkillNames } from "../services/skillIdentifier.ts";
 import { getSkillIdByName } from "../lib/skillCache.ts";
 
+const taskInclude = {
+  skills: { include: { skill: true } },
+  developer: true,
+  subtasks: {
+    include: {
+      skills: { include: { skill: true } },
+      developer: true,
+      subtasks: {
+        include: {
+          skills: { include: { skill: true } },
+          developer: true,
+          subtasks: {
+            include: {
+              skills: { include: { skill: true } },
+              developer: true,
+            },
+          },
+        },
+      },
+    },
+  },
+};
+const MAX_SUBTASK_DEPTH = 3;
+
 interface CreateTaskInput {
   title: string;
   skillIds: number[];
@@ -36,7 +60,7 @@ function buildTaskCreateData(input: CreateTaskInput): TaskCreateData {
   };
 }
 
-function isValidCreateTaskInput(body: unknown): body is CreateTaskInput {
+function isValidCreateTaskInput(body: unknown, depth: number = 1): body is CreateTaskInput {
   if (typeof body !== "object" || body === null) return false;
 
   const bodyRecord = body as Record<string, unknown>;
@@ -50,8 +74,9 @@ function isValidCreateTaskInput(body: unknown): body is CreateTaskInput {
 
   if (bodyRecord.subtasks !== undefined) {
     if (!Array.isArray(bodyRecord.subtasks)) return false;
+    if (bodyRecord.subtasks.length > 0 && depth >= MAX_SUBTASK_DEPTH) return false;
     return bodyRecord.subtasks.every((subtask) =>
-      isValidCreateTaskInput(subtask),
+      isValidCreateTaskInput(subtask, depth + 1),
     );
   }
 
@@ -65,39 +90,45 @@ function collectAllSkillIds(input: CreateTaskInput): number[] {
   ];
 }
 
-async function resolveSkillIds(input: CreateTaskInput): Promise<CreateTaskInput> {
+async function resolveSkillIds(
+  input: CreateTaskInput,
+): Promise<CreateTaskInput> {
   let skillIds = input.skillIds;
 
   if (skillIds.length === 0) {
     const skillNames = await identifySkillNames(input.title);
-    skillIds = skillNames.map((name) => getSkillIdByName(name)).filter((id): id is number => id !== undefined);
+    skillIds = skillNames
+      .map((name) => getSkillIdByName(name))
+      .filter((id): id is number => id !== undefined);
   }
 
   const resolvedSubtasks = await Promise.all(
-    (input.subtasks ?? []).map((subtask) => resolveSkillIds(subtask))
+    (input.subtasks ?? []).map((subtask) => resolveSkillIds(subtask)),
   );
 
-  return {...input, skillIds, subtasks: resolvedSubtasks};
+  return { ...input, skillIds, subtasks: resolvedSubtasks };
 }
 
 export async function createTask(req: Request, res: Response) {
   if (!isValidCreateTaskInput(req.body)) {
-    return res
-      .status(400)
-      .json({
-        error: "Invalid task data: check title, skillIds, and any subtasks",
-      });
+    return res.status(400).json({
+      error: "Invalid task data: check title, skillIds, and any subtasks",
+    });
   }
 
   const resolvedInput = await resolveSkillIds(req.body);
 
   const allSkillIds = [...new Set(collectAllSkillIds(resolvedInput))];
-  const existingSkills = await prisma.skill.findMany({ where: { id: { in: allSkillIds } } });
+  const existingSkills = await prisma.skill.findMany({
+    where: { id: { in: allSkillIds } },
+  });
 
   if (existingSkills.length !== allSkillIds.length) {
     const existingIds = new Set(existingSkills.map((s) => s.id));
     const missingIds = allSkillIds.filter((id) => !existingIds.has(id));
-    return res.status(400).json({ error: `Skill id(s) not found: ${missingIds.join(", ")}` });
+    return res
+      .status(400)
+      .json({ error: `Skill id(s) not found: ${missingIds.join(", ")}` });
   }
 
   const task = await prisma.task.create({
@@ -110,11 +141,8 @@ export async function createTask(req: Request, res: Response) {
 
 export async function getAllTasks(req: Request, res: Response) {
   const tasks = await prisma.task.findMany({
-    include: {
-      skills: { include: { skill: true } },
-      developer: true,
-      subtasks: true,
-    },
+    where: { parentId: null },
+    include: taskInclude,
   });
   res.json(tasks);
 }
@@ -124,11 +152,7 @@ export async function getTaskById(req: Request, res: Response) {
 
   const task = await prisma.task.findUnique({
     where: { id },
-    include: {
-      skills: { include: { skill: true } },
-      developer: true,
-      subtasks: true,
-    },
+    include: taskInclude
   });
 
   if (!task) {
@@ -177,11 +201,7 @@ export async function updateTaskStatus(req: Request, res: Response) {
   const updatedTask = await prisma.task.update({
     where: { id },
     data: { status: status as TaskStatus },
-    include: {
-      skills: { include: { skill: true } },
-      developer: true,
-      subtasks: true,
-    },
+    include: taskInclude
   });
 
   res.json(updatedTask);
@@ -229,11 +249,7 @@ export async function assignTask(req: Request, res: Response) {
   const updatedTask = await prisma.task.update({
     where: { id },
     data: { developerId },
-    include: {
-      skills: { include: { skill: true } },
-      developer: true,
-      subtasks: true,
-    },
+    include: taskInclude
   });
 
   res.json(updatedTask);
