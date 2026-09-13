@@ -1,8 +1,9 @@
 import { SubmitEvent, useEffect, useState } from "react";
-import { Skill } from "../types";
+import { createEmptyDraft, CreateTaskInput, draftToInput, Skill, TaskDraft } from "../types";
 import { useNavigate } from "react-router-dom";
 import { getAllSkills } from "../api/skills";
 import { createTask } from "../api/tasks";
+import SubtaskForm from "../components/SubtaskForm";
 
 const TaskCreationPage = () => {
   const [skills, setSkills] = useState<Skill[]>([]);
@@ -11,6 +12,7 @@ const TaskCreationPage = () => {
   const [taskTitle, setTaskTitle] = useState<string>("");
   const [selectedSkillIds, setSelectedSkills] = useState<number[]>([]);
   const [taskTitleError, setTaskTitleError] = useState<string>("");
+  const [subtasks, setSubtasks] = useState<TaskDraft[]>([]);
   const [formError, setFormError] = useState<string>("");
   const navigate = useNavigate();
 
@@ -52,8 +54,16 @@ const TaskCreationPage = () => {
     }
 
     setTaskTitleError("");
+    setFormError("");
+
+    const input: CreateTaskInput = {
+      title: taskTitle,
+      skillIds: selectedSkillIds,
+      subtasks: subtasks.map((subtask => draftToInput(subtask)))
+    };
+
     try {
-      await createTask(taskTitle, selectedSkillIds);
+      await createTask(input);
       navigate("/");
     } catch (error) {
       console.error(error);
@@ -117,12 +127,38 @@ const TaskCreationPage = () => {
           </div>
         </fieldset>
 
-        <button
-          type="submit"
-          className="mt-6 rounded bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
-        >
-          Create Task
-        </button>
+        {subtasks.map((subtask, i) => (
+          <SubtaskForm
+            key={subtask.id}
+            draft={subtask}
+            skills={skills}
+            onChange={(updated) =>
+              setSubtasks((prev) =>
+                prev.map((s, idx) => (idx === i ? updated : s)),
+              )
+            }
+            onRemove={() =>
+              setSubtasks((prev) => prev.filter((_, idx) => idx !== i))
+            }
+          />
+        ))}
+
+        <div className="flex gap-3">
+          <button
+            type="button"
+            className="mt-6 rounded bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 cursor-pointer"
+            onClick={() => setSubtasks((prev) => [...prev, createEmptyDraft()])}
+          >
+            + Add subtask
+          </button>
+
+          <button
+            type="submit"
+            className="mt-6 rounded bg-green-600 px-4 py-2 text-sm font-medium text-white hover:bg-green-700 cursor-pointer"
+          >
+            Create Task
+          </button>
+        </div>
         {formError && <p className="mt-2 text-sm text-red-500">{formError}</p>}
       </form>
     </div>

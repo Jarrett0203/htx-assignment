@@ -2,54 +2,72 @@ import { Request, Response } from "express";
 import { prisma } from "../lib/prisma.ts";
 import { TaskStatus } from "../generated/prisma/enums.ts";
 
-function isValidCreateTaskInput(
-  body: Record<string, unknown>,
-): body is { title: string; skillIds: number[] } {
-  return (
-    body === null ||
-    typeof body.title !== "string" ||
-    body.title.trim().length === 0 ||
-    !Array.isArray(body.skillIds) ||
-    body.skillIds.length === 0 ||
-    body.skillIds.some((s) => typeof s !== "number")
-  );
+interface CreateTaskInput {
+  title: string;
+  skillIds: number[];
+  subtasks?: CreateTaskInput[];
+}
+
+interface TaskCreateData {
+  title: string;
+  skills: {
+    create: { skill: { connect: { id: number } } }[];
+  };
+  subtasks: {
+    create: TaskCreateData[];
+  };
+}
+
+function buildTaskCreateData(input: CreateTaskInput): TaskCreateData {
+  return {
+    title: input.title,
+    skills: {
+      create: input.skillIds.map((skillId) => ({
+        skill: { connect: { id: skillId } },
+      })),
+    },
+    subtasks: {
+      create: (input.subtasks ?? []).map((subtask) =>
+        buildTaskCreateData(subtask),
+      ),
+    },
+  };
+}
+
+function isValidCreateTaskInput(body: unknown): body is CreateTaskInput {
+  if (typeof body !== "object" || body === null) return false;
+
+  const bodyRecord = body as Record<string, unknown>;
+  const hasValidTitle =
+    typeof bodyRecord.title === "string" && bodyRecord.title.trim().length > 0;
+  const hasValidSkillIds =
+    Array.isArray(bodyRecord.skillIds) &&
+    bodyRecord.skillIds.every((skillId) => typeof skillId === "number");
+
+  if (!hasValidTitle || !hasValidSkillIds) return false;
+
+  if (bodyRecord.subtasks !== undefined) {
+    if (!Array.isArray(bodyRecord.subtasks)) return false;
+    return bodyRecord.subtasks.every((subtask) =>
+      isValidCreateTaskInput(subtask),
+    );
+  }
+
+  return true;
 }
 
 export async function createTask(req: Request, res: Response) {
-  const { title, skillIds } = req.body;
-
-  if (!isValidCreateTaskInput) {
+  if (!isValidCreateTaskInput(req.body)) {
     return res
       .status(400)
       .json({
-        error: "title (string) and skillIds (non-empty number[]) are required",
+        error: "Invalid task data: check title, skillIds, and any subtasks",
       });
   }
 
-  const existingSkills = await prisma.skill.findMany({
-    where: { id: { in: skillIds } },
-  });
-
-  if (existingSkills.length !== skillIds.length) {
-    const existingIds = new Set(existingSkills.map((s) => s.id));
-    const missingIds = skillIds.filter((id: number) => !existingIds.has(id));
-    return res
-      .status(400)
-      .json({ error: `Skill id(s) not found: ${missingIds.join(", ")}` });
-  }
-
   const task = await prisma.task.create({
-    data: {
-      title,
-      skills: {
-        create: skillIds.map((skillId: number) => ({
-          skill: { connect: { id: skillId } },
-        })),
-      },
-    },
-    include: {
-      skills: { include: { skill: true } },
-    },
+    data: buildTaskCreateData(req.body),
+    include: { skills: { include: { skill: true } }, subtasks: true },
   });
 
   res.status(201).json(task);
@@ -60,6 +78,7 @@ export async function getAllTasks(req: Request, res: Response) {
     include: {
       skills: { include: { skill: true } },
       developer: true,
+      subtasks: true,
     },
   });
   res.json(tasks);
@@ -73,6 +92,7 @@ export async function getTaskById(req: Request, res: Response) {
     include: {
       skills: { include: { skill: true } },
       developer: true,
+      subtasks: true,
     },
   });
 
@@ -83,7 +103,7 @@ export async function getTaskById(req: Request, res: Response) {
   res.json(task);
 }
 
-function isValidTask(status: string): status is TaskStatus {
+function isValidTaskStatus(status: string): status is TaskStatus {
   return Object.values(TaskStatus).includes(status as TaskStatus);
 }
 
@@ -91,22 +111,45 @@ export async function updateTaskStatus(req: Request, res: Response) {
   const id = Number(req.params.id);
   const { status } = req.body;
 
-  if (!isValidTask) {
+  if (!isValidTaskStatus) {
     return res.status(400).json({
       error: `Task status must be one of: ${Object.values(TaskStatus).join(", ")}`,
     });
   }
 
-  const task = await prisma.task.update({
+  const task = await prisma.task.findUnique({
+    where: { id },
+    include: {
+      subtasks: true,
+    },
+  });
+
+  if (!task) {
+    return res.status(404).json({ error: "Task not found" });
+  }
+
+  if (status === "DONE") {
+    const allSubtasksDone = task.subtasks.every(
+      (subtask) => subtask.status === "DONE",
+    );
+    if (!allSubtasksDone) {
+      return res.status(400).json({
+        error: "Cannot mark task as Done while subtasks are not Done",
+      });
+    }
+  }
+
+  const updatedTask = await prisma.task.update({
     where: { id },
     data: { status: status as TaskStatus },
     include: {
       skills: { include: { skill: true } },
       developer: true,
+      subtasks: true,
     },
   });
 
-  res.json(task);
+  res.json(updatedTask);
 }
 
 export async function assignTask(req: Request, res: Response) {
@@ -117,7 +160,6 @@ export async function assignTask(req: Request, res: Response) {
     where: { id },
     include: {
       skills: { include: { skill: true } },
-      developer: true,
     },
   });
 
@@ -155,6 +197,7 @@ export async function assignTask(req: Request, res: Response) {
     include: {
       skills: { include: { skill: true } },
       developer: true,
+      subtasks: true,
     },
   });
 

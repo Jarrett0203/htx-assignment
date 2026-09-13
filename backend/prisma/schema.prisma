@@ -39,7 +39,6 @@ model DeveloperSkill {
 enum TaskStatus {
   TODO
   DONE
-  CLOSED
 }
 
 model Task {
@@ -49,6 +48,9 @@ model Task {
   skills TaskSkill[]
   developer Developer? @relation(fields: [developerId], references: [id])
   status TaskStatus @default(TODO)
+  parentId Int?
+  parent Task? @relation("TaskSubtasks", fields: [parentId], references: [id])
+  subtasks Task[] @relation("TaskSubtasks")
 }
 
 model TaskSkill {

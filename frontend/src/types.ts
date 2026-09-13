@@ -1,4 +1,4 @@
-export const TASK_STATUSES = ["TODO", "DONE", "CLOSED"] as const;
+export const TASK_STATUSES = ["TODO", "DONE"] as const;
 export type TaskStatus = (typeof TASK_STATUSES)[number];
 
 export interface Skill {
@@ -19,4 +19,29 @@ export interface Task {
   developerId: number | null;
   developer: Developer | null;
   skills: { skill: Skill }[];
+}
+
+export interface CreateTaskInput {
+  title: string;
+  skillIds: number[];
+  subtasks?: CreateTaskInput[];
+}
+
+export interface TaskDraft {
+  id: string;
+  title: string;
+  skillIds: number[];
+  subtasks: TaskDraft[];
+}
+
+export function createEmptyDraft(): TaskDraft {
+  return { id: crypto.randomUUID(), title: "", skillIds: [], subtasks: [] };
+}
+
+export function draftToInput(draft: TaskDraft): CreateTaskInput {
+  return {
+    title: draft.title,
+    skillIds: draft.skillIds,
+    subtasks: draft.subtasks.map((sub) => draftToInput(sub)),
+  };
 }

@@ -1,8 +1,8 @@
-import type { Task, TaskStatus } from "../types";
+import type { CreateTaskInput, Task, TaskStatus } from "../types";
 import { apiClient } from "./client";
 
-export async function createTask(title: string, skillIds: number[]): Promise<Task> {
-  const res = await apiClient.post<Task>("/tasks", { title, skillIds });
+export async function createTask(input: CreateTaskInput): Promise<Task> {
+  const res = await apiClient.post<Task>("/tasks", input);
   return res.data;
 }
 
@@ -16,12 +16,20 @@ export async function getTaskById(id: number): Promise<Task> {
   return res.data;
 }
 
-export async function updateTaskStatus(id: number, status: TaskStatus): Promise<Task> {
+export async function updateTaskStatus(
+  id: number,
+  status: TaskStatus,
+): Promise<Task> {
   const res = await apiClient.patch<Task>(`/tasks/${id}/status`, { status });
   return res.data;
 }
 
-export async function assignTask(id: number, developerId: number): Promise<Task> {
-  const res = await apiClient.patch<Task>(`/tasks/${id}/assign`, { developerId });
+export async function assignTask(
+  id: number,
+  developerId: number,
+): Promise<Task> {
+  const res = await apiClient.patch<Task>(`/tasks/${id}/assign`, {
+    developerId,
+  });
   return res.data;
 }
