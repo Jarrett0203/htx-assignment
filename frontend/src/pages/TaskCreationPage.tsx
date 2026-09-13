@@ -1,9 +1,16 @@
 import { SubmitEvent, useEffect, useState } from "react";
-import { createEmptyDraft, CreateTaskInput, draftToInput, Skill, TaskDraft } from "../types";
+import {
+  createEmptyDraft,
+  CreateTaskInput,
+  draftToInput,
+  Skill,
+  TaskDraft,
+} from "../types";
 import { useNavigate } from "react-router-dom";
 import { getAllSkills } from "../api/skills";
 import { createTask } from "../api/tasks";
 import SubtaskForm from "../components/SubtaskForm";
+import { ClipLoader } from "react-spinners";
 
 const TaskCreationPage = () => {
   const [skills, setSkills] = useState<Skill[]>([]);
@@ -14,6 +21,7 @@ const TaskCreationPage = () => {
   const [taskTitleError, setTaskTitleError] = useState<string>("");
   const [subtasks, setSubtasks] = useState<TaskDraft[]>([]);
   const [formError, setFormError] = useState<string>("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -55,11 +63,12 @@ const TaskCreationPage = () => {
 
     setTaskTitleError("");
     setFormError("");
+    setIsSubmitting(true);
 
     const input: CreateTaskInput = {
       title: taskTitle,
       skillIds: selectedSkillIds,
-      subtasks: subtasks.map((subtask => draftToInput(subtask)))
+      subtasks: subtasks.map((subtask) => draftToInput(subtask)),
     };
 
     try {
@@ -68,6 +77,8 @@ const TaskCreationPage = () => {
     } catch (error) {
       console.error(error);
       setFormError("Failed to create task, please try again.");
+    } finally {
+      setIsSubmitting(false);
     }
   }
 
@@ -154,9 +165,11 @@ const TaskCreationPage = () => {
 
           <button
             type="submit"
-            className="mt-6 rounded bg-green-600 px-4 py-2 text-sm font-medium text-white hover:bg-green-700 cursor-pointer"
+            disabled={isSubmitting}
+            className="mt-6 flex items-center gap-2 rounded bg-green-600 px-4 py-2 text-sm font-medium text-white hover:bg-green-700 cursor-pointer disabled:cursor-not-allowed disabled:opacity-60"
           >
-            Create Task
+            {isSubmitting && <ClipLoader size={14} color="#ffffff" />}
+            {isSubmitting ? "Creating..." : "Create Task"}
           </button>
         </div>
         {formError && <p className="mt-2 text-sm text-red-500">{formError}</p>}

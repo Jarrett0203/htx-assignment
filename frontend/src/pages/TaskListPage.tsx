@@ -106,13 +106,13 @@ const TaskListPage = () => {
           </div>
 
           {/* Desktop: table, hidden below md */}
-          <table className="hidden w-full border-collapse overflow-hidden rounded-lg border border-slate-200 bg-white text-sm md:table">
+          <table className="hidden w-full table-fixed border-collapse overflow-hidden rounded-lg border border-slate-200 bg-white text-sm md:table">
             <thead>
               <tr className="border-b border-slate-200 bg-slate-50 text-left text-slate-500">
-                <th className="px-4 py-3 font-medium">Task Title</th>
-                <th className="px-4 py-3 font-medium">Skills</th>
-                <th className="px-4 py-3 font-medium">Status</th>
-                <th className="px-4 py-3 font-medium">Assignee</th>
+                <th className="w-2/5 px-4 py-3 font-medium">Task Title</th>
+                <th className="w-1/4 px-4 py-3 font-medium">Skills</th>
+                <th className="w-[15%] px-4 py-3 font-medium">Status</th>
+                <th className="w-[20%] px-4 py-3 font-medium">Assignee</th>
               </tr>
             </thead>
             <tbody>
@@ -121,7 +121,7 @@ const TaskListPage = () => {
                   key={task.id}
                   className="border-b border-slate-100 last:border-0"
                 >
-                  <td className="px-4 py-3 text-slate-800">{task.title}</td>
+                  <td className="wrap-break-word px-4 py-3 text-slate-800">{task.title}</td>
                   <td className="px-4 py-3">
                     <SkillPills skills={task.skills} />
                   </td>
