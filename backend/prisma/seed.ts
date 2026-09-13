@@ -1,6 +1,12 @@
 import { prisma } from "../src/lib/prisma.ts";
 
 async function main() {
+  const existingDeveloperCount = await prisma.developer.count();
+  if (existingDeveloperCount > 0) {
+    console.log("Database already seeded, skipping.");
+    return;
+  }
+
   const frontend = await prisma.skill.create({ data: { name: "Frontend" } });
   const backend = await prisma.skill.create({ data: { name: "Backend" } });
 

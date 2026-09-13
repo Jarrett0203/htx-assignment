@@ -1,4 +1,3 @@
-import React from "react";
 import { Developer, Task } from "../types";
 
 interface AssigneeSelectProps {

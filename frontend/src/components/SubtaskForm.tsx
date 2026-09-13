@@ -1,4 +1,3 @@
-import React from "react";
 import { createEmptyDraft, Skill, TaskDraft } from "../types";
 
 interface SubTaskFormProps {
