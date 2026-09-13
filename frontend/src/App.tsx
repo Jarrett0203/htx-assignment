@@ -21,7 +21,7 @@ function App() {
           </Link>
         </div>
       </nav>
-      <main className="mx-auto max-w-4xl md:px-6 py-8">
+      <main className="mx-auto max-w-4xl md:px-0 px-4 py-8">
         <Routes>
           <Route path="/" element={<TaskListPage />} />
           <Route path="/create" element={<TaskCreationPage />} />

@@ -58,7 +58,7 @@ const TaskListPage = () => {
 
   return (
     <div>
-      <h1 className="mb-6 px-4 md:px-0 text-xl font-semibold text-slate-900">Task List</h1>
+      <h1 className="mb-6 text-xl font-semibold text-slate-900">Task List</h1>
 
       {loading ? (
         <p className="py-8 text-center text-slate-400">Loading...</p>
